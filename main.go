@@ -10,6 +10,17 @@ import "strings"
 import "sync"
 import "time"
 
+/**
+ * Statistics structure.
+ * Average - The average (floored) time in micro seconds of responses. Marshals
+ *     to "average" in JSON.
+ * Count - The number of times the durations have changed. Marshals to "total"
+ *     in JSON.
+ * Durations - The total duration (in micro seconds) of all requests. Ignored
+ *     in JSON.
+ * guard - Non-exported mutex to keep the statistics safe in multi-threaded
+ *     environments. Ignored in JSON.
+ */
 type Statistics struct {
     Average   int64         `json:"average"`
     Count     int64         `json:"total"`
@@ -17,6 +28,11 @@ type Statistics struct {
     guard     *sync.Mutex   `json:"-"`
 }
 
+/**
+ * Update the Durations of a Statistics object. This relies on the Statistics'
+ * guard to make it thread-safe. As a consequence, the count is also
+ * incremented, and the average is re-calculated.
+ */
 func (stats *Statistics) Increase(deltaDuration time.Duration) {
     stats.guard.Lock()
     defer func() {
@@ -27,6 +43,10 @@ func (stats *Statistics) Increase(deltaDuration time.Duration) {
     stats.Average = stats.Durations / stats.Count
 }
 
+/**
+ * Given a string, sha512 it, then base64 encode the digest, and return that as
+ * a string.
+ */
 func sha512Base64(input string) string {
     var hashedString [64]byte = sha512.Sum512([]byte(input))
     return base64.StdEncoding.EncodeToString(hashedString[:])
@@ -60,7 +80,7 @@ func main() {
          * do, we hit something that looks like #17696. So instead we wrap the
          * function in a lambda and it magically does the correct thing then.
          * This likely has to do with the way golang is processing the deferred
-         * statement and it is evalating time.Since far too early in the
+         * statement and it is evaluating time.Since far too early in the
          * function body.
          * Bug reference: https://github.com/golang/go/issues/17696
          */

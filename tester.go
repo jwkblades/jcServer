@@ -15,6 +15,7 @@ import "strings"
 import "sync"
 import "time"
 
+/// An enum for program state.
 type State int
 
 const (
@@ -22,6 +23,7 @@ const (
     stopped       = iota
 )
 
+/// A pseudo-enum for HTTP methods
 const (
     get = iota
     post = iota
@@ -29,6 +31,11 @@ const (
     del = iota
 )
 
+/**
+ * Given a method integer (not a method type, as we wanted to easily be able to
+ * generate them at random), return the respective string for it. If the method
+ * is unknown, return "HEAD".
+ */
 func methodFromInt(method int) string {
     switch {
     case method == get:
@@ -44,11 +51,14 @@ func methodFromInt(method int) string {
     }
 }
 
-
+/// All the bytes we want to allow in our passwords.
 const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()-=[]{}\\|;'\":,./<>?~`"
 
+/**
+ * Randomly generate a string of 0 to <1MB bytes and return it.
+ */
 func randomString(r *rand.Rand) string {
-    n := r.Intn(64) // 1MB max
+    n := r.Intn(1024 * 1024) // 1MB max
     bytes := make([]byte, n)
     for i := range bytes {
         bytes[i] = letterBytes[r.Intn(len(letterBytes))]
@@ -56,11 +66,20 @@ func randomString(r *rand.Rand) string {
     return string(bytes)
 }
 
+/**
+ * Given a string, sha512 it, then base64 encode the digest, and return that as
+ * a string.
+ */
 func sha512Base64(input string) string {
     var hashedString [64]byte = sha512.Sum512([]byte(input))
     return base64.StdEncoding.EncodeToString(hashedString[:])
 }
 
+/**
+ * Launch a new sub process with the command and arguments provided. Do not
+ * wait for the sub process to end, but instead return a pointer to it so that
+ * the caller may wait on the process (or otherwise deal with it).
+ */
 func launchSubProcess(program string, args ...string) *exec.Cmd {
     cmd := exec.Command(program, args...)
     cmd.Stdin = os.Stdin
@@ -100,6 +119,15 @@ func main() {
         requests++
     }
 
+    /**
+     * Generate a HTTP request to the given path on localhost:28080 for a
+     * specified method, with 0 or more form fields to be tacked on to the
+     * body. Return the status that we got.
+     *
+     * In bad response cases (where we didn't get a response, or there was an
+     * error in the response) return -1 as the status number to indicate that
+     * something non-HTTP related went wrong.
+     */
     webRequest := func(path string, method int, fields *map[string]string) (int, string) {
         defer func() {
             incrReqs()
@@ -139,6 +167,11 @@ func main() {
     fmt.Printf("Starting up %d threads, initial seed: %d\r\n", *threads, *seed)
     wg.Add(*threads)
     for i := 0; i < *threads; i++ {
+        /**
+         * The main worker - run through and send a randomized request to the
+         * server. This continues until the server is shut down, a test-level
+         * failure of hashing happens, or something crashes.
+         */
         go func(internalSeed int64) {
             defer func() {
                 wg.Done()
