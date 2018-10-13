@@ -28,8 +28,36 @@ func (stats *Statistics) Increase(deltaDuration time.Duration) {
 }
 
 func sha512Base64(input string) string {
+    fmt.Println("Encoding: '", input, "'")
     var hashedString [64]byte = sha512.Sum512([]byte(input))
     return base64.StdEncoding.EncodeToString(hashedString[:])
+}
+
+// formatRequest generates ascii representation of a request
+func formatRequest(r *http.Request) string {
+    // Create return string
+    var request []string
+    // Add the request string
+    url := fmt.Sprintf("%v %v %v", r.Method, r.URL, r.Proto)
+    request = append(request, url)
+    // Add the host
+    request = append(request, fmt.Sprintf("Host: %v", r.Host))
+    // Loop through headers
+    for name, headers := range r.Header {
+        name = strings.ToLower(name)
+        for _, h := range headers {
+            request = append(request, fmt.Sprintf("%v: %v", name, h))
+        }
+    }
+
+    // If this is a POST, add post data
+    if r.Method == "POST" || r.Method == "post" {
+        r.ParseForm()
+        request = append(request, "\n")
+        request = append(request, r.Form.Encode())
+    }
+    // Return the request as a string
+    return strings.Join(request, "\n")
 }
 
 func main() {
@@ -55,6 +83,7 @@ func main() {
         defer func() {
             wg.Done()
         }()
+        fmt.Println("Request: ", formatRequest(request))
         var startTime time.Time = time.Now()
         /* NOTE: We can't simply defer the duration increase here because if we
          * do, we hit something that looks like #17696. So instead we wrap the

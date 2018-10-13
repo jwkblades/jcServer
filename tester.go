@@ -1,10 +1,16 @@
 package main
 
+import "crypto/sha512"
+import "encoding/base64"
 import "flag"
 import "fmt"
+import "io/ioutil"
 import "math/rand"
-import "os"
-import "os/exec"
+import "net/http"
+import "net/url"
+//import "os"
+//import "os/exec"
+import "strings"
 import "sync"
 import "time"
 
@@ -22,10 +28,25 @@ const (
     del = iota
 )
 
+func methodFromInt(method int) string {
+    switch {
+    case method == get:
+        return "get"
+    case method == post:
+        return "post"
+    case method == put:
+        return "put"
+    case method == del:
+        return "delete"
+    default:
+        return "head"
+    }
+}
+
 const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()-=[]{}\\|;'\":,./<>?~`"
 
 func randomString(r *rand.Rand) string {
-    n := r.Int()
+    n := r.Intn(64) // 1MB max
     bytes := make([]byte, n)
     for i := range bytes {
         bytes[i] = letterBytes[r.Intn(len(letterBytes))]
@@ -33,17 +54,22 @@ func randomString(r *rand.Rand) string {
     return string(bytes)
 }
 
-func launchSubProcess(program string, args ...string) *exec.Cmd {
-    cmd := exec.Command(program, args...)
-    cmd.Stdin = os.Stdin
-    cmd.Stderr = os.Stderr
-    cmd.Stdout = os.Stdout
+//func launchSubProcess(program string, args ...string) *exec.Cmd {
+//    cmd := exec.Command(program, args...)
+//    cmd.Stdin = os.Stdin
+//    cmd.Stderr = os.Stderr
+//    cmd.Stdout = os.Stdout
+//
+//    e := cmd.Start()
+//    if e != nil {
+//        fmt.Printf("Encountered error for %s: %v\n", program, e)
+//    }
+//    return cmd
+//}
 
-    e := cmd.Start()
-    if e != nil {
-        fmt.Printf("Encountered error for %s: %v\n", program, e)
-    }
-    return cmd
+func sha512Base64(input string) string {
+    var hashedString [64]byte = sha512.Sum512([]byte(input))
+    return base64.StdEncoding.EncodeToString(hashedString[:])
 }
 
 func main() {
@@ -52,7 +78,7 @@ func main() {
     flag.Parse()
 
     rand.Seed(int64(*seed))
-    sp := launchSubProcess("./jcAssignment")
+    //sp := launchSubProcess("./jcAssignment")
 
     var wg sync.WaitGroup
     var requests int = 0
@@ -67,11 +93,37 @@ func main() {
         requests++
     }
 
-    webRequest := func(uri string, method int, fields *map[string]string) {
+    webRequest := func(path string, method int, fields *map[string]string) (int, string) {
         fmt.Println("Nothing yet...")
-        incrReqs()
+        defer func() {
+            incrReqs()
+        }()
+        uri, _ := url.ParseRequestURI("http://localhost:28080")
+        uri.Path = path
+
+        var body string = ""
+        var first bool = true
+        for k, v := range *fields {
+            if first {
+                body += k + "=" + v
+                first = false
+            } else {
+                body += "&" + k + "=" + v
+            }
+        }
+
+        request, _ := http.NewRequest(methodFromInt(method), uri.String(), nil)
+        request.Body = ioutil.NopCloser(strings.NewReader(body))
+        request.ContentLength = int64(len(body))
+        request.Header.Add("content-type", "application/x-www-form-urlencoded")
+
+        client := &http.Client{}
+        response, _ := client.Do(request)
+        responseBody, _ := ioutil.ReadAll(response.Body)
+        return response.StatusCode, string(responseBody)
     }
 
+    fmt.Printf("Starting up %d threads, initial seed: %d\r\n", *threads, *seed)
     wg.Add(*threads)
     for i := 0; i < *threads; i++ {
         go func(internalSeed int64) {
@@ -81,19 +133,38 @@ func main() {
             r := rand.New(rand.NewSource(internalSeed))
 
             for currentState != stopped {
-                choice := r.Int()
+                choice := r.Uint32()
+                fmt.Println("Choice: ", choice)
                 switch {
                     case choice < 10: // ~10 in 4 billion chance to stop the server.
+                        status, _ := webRequest("/shutdown", r.Intn(del + 1), nil)
+                        if status != 200 {
+                            panic("Something went contrary to expected, and shutting down the server returned a non-good status!")
+                        }
+                    case choice < 3000000000: // ~75% chance
                         fields := make(map[string]string)
                         fields["password"] = randomString(r)
-                        webRequest("/hash", r.Intn(del + 1), &fields)
-                    case choice < 2000000000: // ~50% chance
+                        method := r.Intn(del + 1)
+                        status, body := webRequest("/hash", method, &fields)
+                        if method != post {
+                            if status != 405 {
+                                panic("Got an unexpected status from /hash with non-POST method!")
+                            }
+                        } else {
+                            expected := sha512Base64(fields["password"])
+                            fmt.Printf("Original: %s\nHash:     %s\nExpected: %s\n\n", fields["password"], body, expected)
+                            if expected != body {
+                                panic("Recieved unexpected hash!")
+                            }
+                        }
+                    default:
+                        continue
                 }
             }
 
         }(rand.Int63())
     }
 
-    sp.Wait()
+    //sp.Wait()
     wg.Wait()
 }
