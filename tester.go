@@ -117,12 +117,12 @@ func main() {
             for currentState != stopped {
                 choice := r.Uint32()
                 switch {
-                    case choice < 10: // ~10 in 4 billion chance to stop the server.
+                    case choice < 10000: // ~10000 in 4 billion chance to stop the server.
                         status, _ := webRequest("/shutdown", r.Intn(del + 1), nil)
                         if status != 200 {
                             panic("Something went contrary to expected, and shutting down the server returned a non-good status!")
                         }
-                    case choice < 3000000000: // ~75% chance
+                    case choice < 3000100000: // ~75% chance
                         fields := make(map[string]string)
                         fields["password"] = randomString(r)
                         method := r.Intn(del + 1)
