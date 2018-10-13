@@ -8,6 +8,7 @@ import "io/ioutil"
 import "math/rand"
 import "net/http"
 import "net/url"
+import "os"
 import "strconv"
 import "strings"
 import "sync"
@@ -100,9 +101,19 @@ func main() {
         request.Header.Add("content-length", strconv.Itoa(len(encodedData)))
 
         client := &http.Client{}
-        response, _ := client.Do(request)
-        body, _ := ioutil.ReadAll(response.Body)
-        return response.StatusCode, string(body)
+        response, err1 := client.Do(request)
+        if err1 != nil {
+            fmt.Fprintf(os.Stderr, "%v\n", err1)
+        }
+
+        if response != nil {
+            body, err2 := ioutil.ReadAll(response.Body)
+            if err2 != nil {
+                fmt.Fprintf(os.Stderr, "%v\n", err2)
+            }
+            return response.StatusCode, string(body)
+        }
+        return -1, "Test error, see stderr."
     }
 
     fmt.Printf("Starting up %d threads, initial seed: %d\r\n", *threads, *seed)
@@ -117,9 +128,12 @@ func main() {
             for currentState != stopped {
                 choice := r.Uint32()
                 switch {
-                    case choice < 10000: // ~10000 in 4 billion chance to stop the server.
+                    case choice < 100000: // ~100000 in 4 billion chance to stop the server.
                         status, _ := webRequest("/shutdown", r.Intn(del + 1), nil)
-                        if status != 200 {
+                        currentState = stopped
+                        if status == -1 {
+                            break
+                        } else if status != 200 {
                             panic("Something went contrary to expected, and shutting down the server returned a non-good status!")
                         }
                     case choice < 3000100000: // ~75% chance
@@ -127,6 +141,10 @@ func main() {
                         fields["password"] = randomString(r)
                         method := r.Intn(del + 1)
                         status, body := webRequest("/hash", method, &fields)
+                        if status == -1 {
+                            break
+                        }
+
                         if method != post {
                             if status != 405 {
                                 panic("Got an unexpected status from /hash with non-POST method!")
@@ -139,7 +157,10 @@ func main() {
                         }
                     case choice < 4000000000:
                         method := r.Intn(del + 1)
-                        _, body := webRequest("/stats", method, nil)
+                        status, body := webRequest("/stats", method, nil)
+                        if status == -1 {
+                            break
+                        }
                         fmt.Println(body)
                     default:
                         continue
