@@ -4,13 +4,15 @@ import "crypto/sha512"
 import "encoding/base64"
 import "flag"
 import "fmt"
-import "io/ioutil"
+//import "io/ioutil"
 import "math/rand"
-import "net/http"
-import "net/url"
+import "net"
+//import "net/http"
+//import "net/url"
 //import "os"
 //import "os/exec"
-import "strings"
+//import "strings"
+import "strconv"
 import "sync"
 import "time"
 
@@ -43,7 +45,7 @@ func methodFromInt(method int) string {
     }
 }
 
-const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()-=[]{}\\|;'\":,./<>?~`"
+const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
 func randomString(r *rand.Rand) string {
     n := r.Intn(64) // 1MB max
@@ -98,8 +100,6 @@ func main() {
         defer func() {
             incrReqs()
         }()
-        uri, _ := url.ParseRequestURI("http://localhost:28080")
-        uri.Path = path
 
         var body string = ""
         var first bool = true
@@ -112,15 +112,19 @@ func main() {
             }
         }
 
-        request, _ := http.NewRequest(methodFromInt(method), uri.String(), nil)
-        request.Body = ioutil.NopCloser(strings.NewReader(body))
-        request.ContentLength = int64(len(body))
-        request.Header.Add("content-type", "application/x-www-form-urlencoded")
+        client, _ := net.Dial("tcp", "localhost:28080")
+        var req string = methodFromInt(method) + " " + path + " HTTP/1.1\r\n"
+        req += "host: localhost:28080\r\n"
+        req += "accept-encoding: gzip\r\n"
+        req += "user-agent: Go-http-custom/1.1\r\n"
+        req += "content-length: " + strconv.Itoa(len(body)) + "\r\n"
+        req += "Content-Type: application/x-www-form-urlencoded\r\n"
+        req += "\r\n"
+        req += body
+        fmt.Println("Sending request:\n", req)
+        fmt.Fprintf(client, "%s", req)
 
-        client := &http.Client{}
-        response, _ := client.Do(request)
-        responseBody, _ := ioutil.ReadAll(response.Body)
-        return response.StatusCode, string(responseBody)
+        return 405, "test"
     }
 
     fmt.Printf("Starting up %d threads, initial seed: %d\r\n", *threads, *seed)
