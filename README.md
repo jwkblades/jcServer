@@ -19,9 +19,12 @@ in the rest of the documents.
 # Running
 
 Once you have built the assignment (using `make`), you can run it by running
-`./jcAssignment`. This will start up a simply web server on `localhost:28080`
-that will listen for non-encrypted connections and respond on `/hash`,
-`/stats`, and `/shutdown`.  
+`./jcAssignment`. This will start up a simply web server on `localhost:80` by
+default, which will listen for non-encrypted connections and respond on
+`/hash`, `/stats`, and `/shutdown`.  
+
+You may change the port that the server is being hosted on by sending
+`-port=###` as a flag to `jcAssignment`.  
 
 ## `/hash`
 
@@ -51,7 +54,7 @@ that were invalid and as such resulted in a 405 being returned.
 
 # Tests
 
-An additional executable `jcTest` is available to run psuedo-random tests (PRT)
+An additional executable `jcTest` is available to run pseudo-random tests (PRT)
 on the assignment server.  
 
 **NOTE** `jcTest` does require that the server is not currently running (and
@@ -64,10 +67,10 @@ response that it gets back. This is primarily important for the POST method on
 `/hash`, in which case we verify that the returned hash is what we expect it to
 be (by running the same hash on our end and comparing them).  
 
-The `/stats` endpoint is simply printed, becasue while we keep track of the
+The `/stats` endpoint is simply printed, because while we keep track of the
 number of requests that have been sent, the PRT doesn't have an easy way to
 synchronize the threads to ensure that no requests to `/hash` are made while a
-`/stats` request is being mae - this means that in theory the expected and
+`/stats` request is being made - this means that in theory the expected and
 actual number of requests that have been made to the server could change in the
 middle of fetching the statistics; resulting in an unexpected value and a test
 failure.  
@@ -78,8 +81,6 @@ I did make a few assumptions with the assignment as things went:
 1. The statistics should also track the time that is spent sleeping for the
    5-second "hard work" nap.  
 2. Invalid requests to hash should return ASAP and not take the 5-second nap.  
-3. The user isn't running as root, meaning that ports < 10000 are unavailable
-   to us, as such we are going to listen on port `28080`.  
-4. People are comfortable with `make`, or at least with running it.  
-5. The default go directory structure is primarily useful for creating
+3. People are comfortable with `make`, or at least with running it.  
+4. The default go directory structure is primarily useful for creating
    libraries instead of applications.  

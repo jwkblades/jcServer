@@ -4,9 +4,11 @@ import "context"
 import "crypto/sha512"
 import "encoding/base64"
 import "encoding/json"
+import "flag"
 import "fmt"
 import "net/http"
 import "strings"
+import "strconv"
 import "sync"
 import "time"
 
@@ -53,6 +55,8 @@ func sha512Base64(input string) string {
 }
 
 func main() {
+    port := flag.Int("port", 80, "The port to stand the HTTP server up on")
+    flag.Parse()
     var wg sync.WaitGroup
 
     hashStatistics := &Statistics{
@@ -63,7 +67,7 @@ func main() {
     }
 
     var server *http.Server = &http.Server{
-        Addr: ":28080",
+        Addr: ":" + strconv.Itoa(*port),
         Handler: nil,
         ReadTimeout: 30 * time.Second,
         WriteTimeout: 30 * time.Second,

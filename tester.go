@@ -106,7 +106,7 @@ func main() {
     var reqGuard *sync.Mutex = &sync.Mutex{}
     var currentState State = running
 
-    sp := launchSubProcess("./jcAssignment")
+    sp := launchSubProcess("./jcAssignment", "-port=28080")
     if sp == nil {
         panic("Unable to start web server. Aborting.")
     }
