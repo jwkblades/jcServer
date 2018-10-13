@@ -4,15 +4,14 @@ import "crypto/sha512"
 import "encoding/base64"
 import "flag"
 import "fmt"
-//import "io/ioutil"
+import "io/ioutil"
 import "math/rand"
-import "net"
-//import "net/http"
-//import "net/url"
+import "net/http"
+import "net/url"
 //import "os"
 //import "os/exec"
-//import "strings"
 import "strconv"
+import "strings"
 import "sync"
 import "time"
 
@@ -33,19 +32,20 @@ const (
 func methodFromInt(method int) string {
     switch {
     case method == get:
-        return "get"
+        return "GET"
     case method == post:
-        return "post"
+        return "POST"
     case method == put:
-        return "put"
+        return "PUT"
     case method == del:
-        return "delete"
+        return "DELETE"
     default:
-        return "head"
+        return "HEAD"
     }
 }
 
-const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+
+const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()-=[]{}\\|;'\":,./<>?~`"
 
 func randomString(r *rand.Rand) string {
     n := r.Intn(64) // 1MB max
@@ -100,31 +100,25 @@ func main() {
         defer func() {
             incrReqs()
         }()
+        uri, _ := url.ParseRequestURI("http://localhost:28080")
+        uri.Path = path
 
-        var body string = ""
-        var first bool = true
+        data := url.Values{}
         for k, v := range *fields {
-            if first {
-                body += k + "=" + v
-                first = false
-            } else {
-                body += "&" + k + "=" + v
-            }
+            data.Set(k, v)
         }
 
-        client, _ := net.Dial("tcp", "localhost:28080")
-        var req string = methodFromInt(method) + " " + path + " HTTP/1.1\r\n"
-        req += "host: localhost:28080\r\n"
-        req += "accept-encoding: gzip\r\n"
-        req += "user-agent: Go-http-custom/1.1\r\n"
-        req += "content-length: " + strconv.Itoa(len(body)) + "\r\n"
-        req += "Content-Type: application/x-www-form-urlencoded\r\n"
-        req += "\r\n"
-        req += body
-        fmt.Println("Sending request:\n", req)
-        fmt.Fprintf(client, "%s", req)
+        encodedData := data.Encode()
+        stringData := strings.NewReader(encodedData)
+        fmt.Println("Sending: ", stringData, "  --- Originally: ", encodedData)
+        request, _ := http.NewRequest(methodFromInt(method), uri.String(), stringData)
+        request.Header.Add("content-type", "application/x-www-form-urlencoded")
+        request.Header.Add("content-length", strconv.Itoa(len(encodedData)))
 
-        return 405, "test"
+        client := &http.Client{}
+        response, _ := client.Do(request)
+        body, _ := ioutil.ReadAll(response.Body)
+        return response.StatusCode, string(body)
     }
 
     fmt.Printf("Starting up %d threads, initial seed: %d\r\n", *threads, *seed)
