@@ -6,7 +6,6 @@ import "encoding/base64"
 import "encoding/json"
 import "fmt"
 import "net/http"
-import "os"
 import "strings"
 import "sync"
 import "time"
@@ -35,24 +34,6 @@ func sha512Base64(input string) string {
 
 func main() {
     var wg sync.WaitGroup
-
-    /*
-     * *sigh* So, as it turns out there is a bug around timing (specifically how
-     * durations and sleep work together, or don't) and as a result the times
-     * being returned are... well, incorrect. What it comes down to is that the
-     * time.Sleep appears to be getting excluded from time.Since(startTime),
-     * which in turn means that all of the timing values are far smaller than
-     * they should be.
-     */
-    go func() {
-        startingTime := time.Now()
-        time.Sleep(5 * time.Second)
-        if time.Since(startingTime) < 4 * time.Second {
-            os.Stderr.WriteString("Go timer bug #17696 (https://github.com/golang/go/issues/17696) encountered. Sleeps are discounted in timing calculations.\r\n\r\n")
-        } else {
-            fmt.Println("Timing seems to work properly.", time.Since(startingTime))
-        }
-    }()
 
     hashStatistics := &Statistics{
         Count: 0,
