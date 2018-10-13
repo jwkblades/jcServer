@@ -8,8 +8,6 @@ import "io/ioutil"
 import "math/rand"
 import "net/http"
 import "net/url"
-//import "os"
-//import "os/exec"
 import "strconv"
 import "strings"
 import "sync"
@@ -56,19 +54,6 @@ func randomString(r *rand.Rand) string {
     return string(bytes)
 }
 
-//func launchSubProcess(program string, args ...string) *exec.Cmd {
-//    cmd := exec.Command(program, args...)
-//    cmd.Stdin = os.Stdin
-//    cmd.Stderr = os.Stderr
-//    cmd.Stdout = os.Stdout
-//
-//    e := cmd.Start()
-//    if e != nil {
-//        fmt.Printf("Encountered error for %s: %v\n", program, e)
-//    }
-//    return cmd
-//}
-
 func sha512Base64(input string) string {
     var hashedString [64]byte = sha512.Sum512([]byte(input))
     return base64.StdEncoding.EncodeToString(hashedString[:])
@@ -80,7 +65,6 @@ func main() {
     flag.Parse()
 
     rand.Seed(int64(*seed))
-    //sp := launchSubProcess("./jcAssignment")
 
     var wg sync.WaitGroup
     var requests int = 0
@@ -96,7 +80,6 @@ func main() {
     }
 
     webRequest := func(path string, method int, fields *map[string]string) (int, string) {
-        fmt.Println("Nothing yet...")
         defer func() {
             incrReqs()
         }()
@@ -110,7 +93,6 @@ func main() {
 
         encodedData := data.Encode()
         stringData := strings.NewReader(encodedData)
-        fmt.Println("Sending: ", stringData, "  --- Originally: ", encodedData)
         request, _ := http.NewRequest(methodFromInt(method), uri.String(), stringData)
         request.Header.Add("content-type", "application/x-www-form-urlencoded")
         request.Header.Add("content-length", strconv.Itoa(len(encodedData)))
@@ -132,7 +114,6 @@ func main() {
 
             for currentState != stopped {
                 choice := r.Uint32()
-                fmt.Println("Choice: ", choice)
                 switch {
                     case choice < 10: // ~10 in 4 billion chance to stop the server.
                         status, _ := webRequest("/shutdown", r.Intn(del + 1), nil)
@@ -150,7 +131,6 @@ func main() {
                             }
                         } else {
                             expected := sha512Base64(fields["password"])
-                            fmt.Printf("Original: %s\nHash:     %s\nExpected: %s\n\n", fields["password"], body, expected)
                             if expected != body {
                                 panic("Recieved unexpected hash!")
                             }
@@ -163,6 +143,5 @@ func main() {
         }(rand.Int63())
     }
 
-    //sp.Wait()
     wg.Wait()
 }
