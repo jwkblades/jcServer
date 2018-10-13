@@ -87,8 +87,10 @@ func main() {
         uri.Path = path
 
         data := url.Values{}
-        for k, v := range *fields {
-            data.Set(k, v)
+        if fields != nil {
+            for k, v := range *fields {
+                data.Set(k, v)
+            }
         }
 
         encodedData := data.Encode()
@@ -135,6 +137,10 @@ func main() {
                                 panic("Recieved unexpected hash!")
                             }
                         }
+                    case choice < 4000000000:
+                        method := r.Intn(del + 1)
+                        _, body := webRequest("/stats", method, nil)
+                        fmt.Println(body)
                     default:
                         continue
                 }
