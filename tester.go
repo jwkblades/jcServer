@@ -9,6 +9,7 @@ import "math/rand"
 import "net/http"
 import "net/url"
 import "os"
+import "os/exec"
 import "strconv"
 import "strings"
 import "sync"
@@ -60,6 +61,20 @@ func sha512Base64(input string) string {
     return base64.StdEncoding.EncodeToString(hashedString[:])
 }
 
+func launchSubProcess(program string, args ...string) *exec.Cmd {
+    cmd := exec.Command(program, args...)
+    cmd.Stdin = os.Stdin
+    cmd.Stderr = os.Stderr
+    cmd.Stdout = os.Stdout
+
+    e := cmd.Start()
+    if e != nil {
+        fmt.Printf("Encountered error for %s: %v\n", program, e)
+    }
+    return cmd
+}
+
+
 func main() {
     threads := flag.Int("threads", 1, "The number of threads to run")
     seed := flag.Int("seed", int(time.Now().Unix()), "The seed for the PRT")
@@ -71,6 +86,11 @@ func main() {
     var requests int = 0
     var reqGuard *sync.Mutex = &sync.Mutex{}
     var currentState State = running
+
+    sp := launchSubProcess("./jcAssignment")
+    if sp == nil {
+        panic("Unable to start web server. Aborting.")
+    }
 
     incrReqs := func() {
         reqGuard.Lock()
@@ -171,4 +191,5 @@ func main() {
     }
 
     wg.Wait()
+    sp.Wait()
 }
